@@ -18,7 +18,7 @@ Just inherit from Chargeable model and implement several functions to make it wo
   def payer(self):
     # Return any objects that has stripe_token set up
 
-   def get_charge_amount(self):
+  def get_charge_amount(self):
     # return amount to be charged in cents
 
   def _validate_for_charge(self, **kwargs):
