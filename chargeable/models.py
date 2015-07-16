@@ -97,6 +97,9 @@ class Chargeable(models.Model):
             if not self.payer.stripe_token:
                 self.charge_error_msg = '%s does not belong to active customer' % self.__class__.__name__
                 raise ValidationError('%s %s' % (self.id, self.charge_error_msg))
+            if not self.payer.is_active:
+                self.charge_error_msg = '%s is not an active customer' % self.__class__.__name__
+                raise ValidationError('%s %s' % (self.id, self.charge_error_msg))
         except ValidationError as e:
             logger.info("Validation failed for %s %s, payer %s: %s" % (self.__class__.__name__, self.id, self.payer.id, e.message))
             self.charge_status = VALIDATION_FAILED
