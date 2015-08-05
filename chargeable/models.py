@@ -23,6 +23,7 @@ class Chargeable(models.Model):
     charge_date = models.DateTimeField(null=True, blank=True)
 
     charge_error_msg = None
+    refund_error_msg = None
 
     objects = ChargeableManager()
 
@@ -139,3 +140,54 @@ class Chargeable(models.Model):
 
     def _unlock_for_charge(self):
         cache.delete(self._charge_lock_key)
+
+    def refund(self, amount=None, **kwargs):
+        if self.is_valid_for_refund(amount, **kwargs):
+            stripe.api_key = settings.STRIPE_API_KEY
+            try:
+                charge = stripe.Charge.retrieve(self.charge_id)
+                charge.refund(amount=amount)
+                self.charge_status = REFUNDED if charge.refunded else PARTIALLY_REFUNDED
+                self.save()
+                self.refund_succeeded(amount, **kwargs)
+                return True
+            except StripeError as e:
+                exc_type, exc_value, _ = sys.exc_info()
+                self.charge_error_msg = exc_value.message
+                logger.warning('Refund failed %s %s:%s - %s' % (amount, self.payer.id, exc_type, exc_value))
+                self.refund_failed(e, **kwargs)
+                return False
+            finally:
+                self.post_refund(amount, **kwargs)
+        return False
+
+    def is_valid_for_refund(self, amount=None, **kwargs):
+        try:
+            if self.charge_status not in [PAID, PARTIALLY_REFUNDED]:
+                self.refund_error_msg = 'Cannot refund Chargeable with status "%s"' % self.get_charge_status_display()
+                raise ValidationError(self.refund_error_msg)
+            if self.charge_amount == 0:
+                self.refund_error_msg = 'Cannot refund Chargeable with charged amount = 0'
+                raise ValidationError(self.refund_error_msg)
+            if amount == 0:
+                self.refund_error_msg = 'Cannot refund 0'
+                raise ValidationError(self.refund_error_msg)
+            if amount is not None and self.charge_amount < amount:
+                self.refund_error_msg = 'Cannot refund more than was charged'
+                raise ValidationError(self.refund_error_msg)
+            if not self.charge_id:
+                self.refund_error_msg = 'Cannot refund Chargeable with charge_id not set'
+                raise ValidationError(self.refund_error_msg)
+        except ValidationError as e:
+            logger.info("Validation failed on refund for %s %s, payer %s: %s" % (self.__class__.__name__, self.id, self.payer.id, e.message))
+            return False
+        return True
+
+    def post_refund(self, amount, **kwargs):
+        pass
+
+    def refund_succeeded(self, amount, **kwargs):
+        pass
+
+    def refund_failed(self, e, **kwargs):
+        pass
