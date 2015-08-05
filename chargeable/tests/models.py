@@ -4,6 +4,7 @@ from chargeable.models import Chargeable
 
 class Payer(object):
     id = 1
+    is_active = True
     stripe_token = 'valid_token'
 
 

@@ -1,16 +1,17 @@
 from decimal import Decimal
 import datetime
+from chargeable.app_settings import CHARGEABLE_STRIPE_MAXIMUM_CHARGE_AMOUNT
 from django.core.cache import cache
 from django.test import TestCase
 from mock import Mock, patch
 from stripe import StripeError
-from chargeable.choices import PAID, FAILED, VALIDATION_FAILED
+from chargeable.choices import *
 from chargeable.exceptions import ValidationError
-from chargeable.models import Chargeable, STRIPE_MAXIMUM_CHARGE_AMOUNT
+from chargeable.models import Chargeable
 from chargeable.tests.models import RealChargeable
 
 
-class TestValidation(TestCase):
+class TestChargeValidation(TestCase):
 
     def setUp(self):
         self.chargeable = RealChargeable()
@@ -52,6 +53,48 @@ class TestValidation(TestCase):
         self.assertEqual(self.chargeable.charge_status, VALIDATION_FAILED)
         self.chargeable.validation_failed.assert_called_once_with('1 RealChargeable has already been charged: charge_amount is set (but charge_id is NOT set...weird)')
 
+
+class TestRefundValidation(TestCase):
+
+    def setUp(self):
+        self.chargeable = RealChargeable()
+        self.chargeable.charge_status = PAID
+
+    def test_validation_fails_on_wrong_status(self):
+        statuses = [NOT_PAID, FAILED, REFUNDED, VALIDATION_FAILED]
+        for status in statuses:
+            self.chargeable.charge_status = status
+            self.assertFalse(self.chargeable.is_valid_for_refund())
+            expected = 'Cannot refund Chargeable with status "%s"' % self.chargeable.get_charge_status_display()
+            self.assertEqual(self.chargeable.refund_error_msg, expected)
+
+    def test_cant_refund_with_charge_amount_zero(self):
+        self.chargeable.charge_amount = 0
+
+        self.assertFalse(self.chargeable.is_valid_for_refund())
+        expected = 'Cannot refund Chargeable with charged amount = 0'
+        self.assertEqual(self.chargeable.refund_error_msg, expected)
+
+    def test_cant_refund_with_amount_zero(self):
+        self.assertFalse(self.chargeable.is_valid_for_refund(amount=0))
+        expected = 'Cannot refund 0'
+        self.assertEqual(self.chargeable.refund_error_msg, expected)
+
+    def test_cant_refund_more_than_charged(self):
+        self.chargeable.charge_amount = 500
+        amount = self.chargeable.charge_amount + 1
+        self.assertFalse(self.chargeable.is_valid_for_refund(amount=amount))
+        expected = 'Cannot refund more than was charged'
+        self.assertEqual(self.chargeable.refund_error_msg, expected)
+
+    def test_cant_refund_with_charge_id_not_set(self):
+        self.chargeable.charge_id = None
+        self.assertFalse(self.chargeable.is_valid_for_refund())
+        expected = 'Cannot refund Chargeable with charge_id not set'
+        self.assertEqual(self.chargeable.refund_error_msg, expected)
+
+    def test_validate_return_true(self):
+        self.assertTrue(self.chargeable.is_valid_for_refund())
 
 class TestAmount(TestCase):
 
@@ -135,7 +178,7 @@ class TestCharge(TestCase):
         self.chargeable.save.assert_called_once_with()
 
     def test_cannot_charge_more_than_max_amount(self):
-        self.chargeable._charge_amount = STRIPE_MAXIMUM_CHARGE_AMOUNT + 1
+        self.chargeable._charge_amount = CHARGEABLE_STRIPE_MAXIMUM_CHARGE_AMOUNT + 1
         self.assertFalse(self.chargeable.is_valid_for_charge())
 
     def test_chargeable_locked_on_charge(self):
