@@ -141,13 +141,13 @@ class Chargeable(models.Model):
     def _unlock(self):
         cache.delete(self._lock_key)
 
-    def refund(self, amount=None, **kwargs):
+    def refund(self, amount=None, reason=None, **kwargs):
         if self.is_valid_for_refund(amount, **kwargs) and self._lock():
             stripe.api_key = settings.STRIPE_API_KEY
             try:
-                logger.info('Refunding payer(%s): %s' % (self.payer.id, amount))
+                logger.info('Refunding payer(%s): %s, %s' % (self.payer.id, amount, reason))
                 charge = stripe.Charge.retrieve(self.charge_id)
-                charge.refund(amount=amount)
+                charge.refund(amount=amount, reason=reason)
                 self.charge_status = REFUNDED if charge.refunded else PARTIALLY_REFUNDED
                 self.refund_succeeded(amount, **kwargs)
                 return True
