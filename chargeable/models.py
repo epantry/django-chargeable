@@ -153,7 +153,7 @@ class Chargeable(models.Model):
                 return True
             except StripeError as e:
                 exc_type, exc_value, _ = sys.exc_info()
-                self.charge_error_msg = exc_value.message
+                self.refund_error_msg = exc_value.message
                 logger.warning('Refund failed amount(%s) payer(%s):%s - %s' % (amount, self.payer.id, exc_type, exc_value))
                 self.refund_failed(e, **kwargs)
                 return False
