@@ -47,14 +47,14 @@ class Chargeable(models.Model):
         if self.is_valid_for_charge(**kwargs) and self._lock():
             try:
                 amount = self.get_charge_amount()
-                logger.info('Charging %s: %s' % (self.payer.id, amount))
+                logger.info('Charging payer(%s): %s' % (self.payer.id, amount))
                 if amount >= app_settings.CHARGEABLE_STRIPE_MINIMUM_CHARGE_AMOUNT:
                     charge = stripe.resource.Charge.create(amount=amount,
                                                            customer=self.payer.stripe_token,
                                                            currency='usd',
                                                            description=self.get_charge_description()
                     )
-                    logger.info('Charged %s: %s' % (self.payer.id, amount))
+                    logger.info('Charged payer(%s): %s' % (self.payer.id, amount))
                     self.charge_id = charge.id
                     amount = charge.amount
                 self.charge_amount = amount
@@ -65,7 +65,7 @@ class Chargeable(models.Model):
                 self.charge_status = FAILED
                 exc_type, exc_value, _ = sys.exc_info()
                 self.charge_error_msg = exc_value.message
-                logger.warning('Charge failed %s %s:%s - %s' % (amount, self.payer.id, exc_type, exc_value))
+                logger.warning('Charge failed amount(%s) payer(%s):%s - %s' % (amount, self.payer.id, exc_type, exc_value))
                 self.charge_failed(e, **kwargs)
             finally:
                 self.save()
@@ -145,6 +145,7 @@ class Chargeable(models.Model):
         if self.is_valid_for_refund(amount, **kwargs) and self._lock():
             stripe.api_key = settings.STRIPE_API_KEY
             try:
+                logger.info('Refunding payer(%s): %s' % (self.payer.id, amount))
                 charge = stripe.Charge.retrieve(self.charge_id)
                 charge.refund(amount=amount)
                 self.charge_status = REFUNDED if charge.refunded else PARTIALLY_REFUNDED
@@ -153,7 +154,7 @@ class Chargeable(models.Model):
             except StripeError as e:
                 exc_type, exc_value, _ = sys.exc_info()
                 self.charge_error_msg = exc_value.message
-                logger.warning('Refund failed %s %s:%s - %s' % (amount, self.payer.id, exc_type, exc_value))
+                logger.warning('Refund failed amount(%s) payer(%s):%s - %s' % (amount, self.payer.id, exc_type, exc_value))
                 self.refund_failed(e, **kwargs)
                 return False
             finally:
