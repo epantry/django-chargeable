@@ -39,12 +39,12 @@ class Chargeable(models.Model):
         return self.charge_status == PAID
 
     @property
-    def _charge_lock_key(self):
-        return 'charge_lock_%s_%s' % (self.__class__.__name__, self.id)
+    def _lock_key(self):
+        return 'chargeable_lock_%s_%s' % (self.__class__.__name__, self.id)
 
     def charge(self, **kwargs):
         stripe.api_key = settings.STRIPE_API_KEY
-        if self.is_valid_for_charge(**kwargs) and self._lock_for_charge():
+        if self.is_valid_for_charge(**kwargs) and self._lock():
             try:
                 amount = self.get_charge_amount()
                 logger.info('Charging %s: %s' % (self.payer.id, amount))
@@ -69,7 +69,7 @@ class Chargeable(models.Model):
                 self.charge_failed(e, **kwargs)
             finally:
                 self.save()
-                self._unlock_for_charge()
+                self._unlock()
                 self.post_charge(**kwargs)
         return self.is_charged
 
@@ -135,20 +135,19 @@ class Chargeable(models.Model):
     def validation_failed(self, message):
         pass
 
-    def _lock_for_charge(self):
-        return cache.add(self._charge_lock_key, 1, app_settings.CHARGEABLE_CHARGE_LOCK_TIME)
+    def _lock(self):
+        return cache.add(self._lock_key, 1, app_settings.CHARGEABLE_CHARGE_LOCK_TIME)
 
-    def _unlock_for_charge(self):
-        cache.delete(self._charge_lock_key)
+    def _unlock(self):
+        cache.delete(self._lock_key)
 
     def refund(self, amount=None, **kwargs):
-        if self.is_valid_for_refund(amount, **kwargs):
+        if self.is_valid_for_refund(amount, **kwargs) and self._lock():
             stripe.api_key = settings.STRIPE_API_KEY
             try:
                 charge = stripe.Charge.retrieve(self.charge_id)
                 charge.refund(amount=amount)
                 self.charge_status = REFUNDED if charge.refunded else PARTIALLY_REFUNDED
-                self.save()
                 self.refund_succeeded(amount, **kwargs)
                 return True
             except StripeError as e:
@@ -158,6 +157,8 @@ class Chargeable(models.Model):
                 self.refund_failed(e, **kwargs)
                 return False
             finally:
+                self.save()
+                self._unlock()
                 self.post_refund(amount, **kwargs)
         return False
 

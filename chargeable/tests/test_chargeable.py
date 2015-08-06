@@ -182,22 +182,22 @@ class TestCharge(TestCase):
         self.assertFalse(self.chargeable.is_valid_for_charge())
 
     def test_chargeable_locked_on_charge(self):
-        self.chargeable._lock_for_charge = Mock(return_value=True)
+        self.chargeable._lock = Mock(return_value=True)
 
         self.chargeable.charge()
 
-        self.chargeable._lock_for_charge.assert_called_once_with()
+        self.chargeable._lock.assert_called_once_with()
 
     def test_cannot_charge_when_locked(self):
-        self.assertTrue(self.chargeable._lock_for_charge())
+        self.assertTrue(self.chargeable._lock())
 
         self.assertFalse(self.chargeable.charge())
 
         self.assertEqual(self.mocked_stripe.call_count, 0)
 
-        self.chargeable._unlock_for_charge()
+        self.chargeable._unlock()
 
     def test_chargeable_unlocked_after_charge(self):
         self.assertTrue(self.chargeable.charge())
 
-        self.assertFalse(cache.has_key(self.chargeable._charge_lock_key))
+        self.assertFalse(cache.has_key(self.chargeable._lock_key))
