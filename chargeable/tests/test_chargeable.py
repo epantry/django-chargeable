@@ -58,6 +58,7 @@ class TestRefundValidation(TestCase):
 
     def setUp(self):
         self.chargeable = RealChargeable()
+        self.chargeable.charge_id = 'test_charge_id'
         self.chargeable.charge_status = PAID
 
     def test_validation_fails_on_wrong_status(self):
