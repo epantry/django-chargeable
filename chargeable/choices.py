@@ -10,5 +10,6 @@ CHARGEABLE_STATUS_CHOICES = (
     (PAID, 'Paid'),
     (FAILED, 'Failed'),
     (REFUNDED, 'Refunded'),
+    (PARTIALLY_REFUNDED, 'Partially refunded'),
     (VALIDATION_FAILED, 'Validation Failed')
 )
