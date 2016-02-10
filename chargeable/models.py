@@ -65,7 +65,9 @@ class Chargeable(models.Model):
                 self.charge_status = FAILED
                 exc_type, exc_value, _ = sys.exc_info()
                 self.charge_error_msg = exc_value.message
-                logger.warning('Charge failed amount(%s) payer(%s):%s - %s' % (amount, self.payer.id, exc_type, exc_value))
+                logger.warning('Charge failed amount(%s) payer(%s):%s - %s' % (
+                    amount, self.payer.id, exc_type, exc_value.message
+                ))
                 self.charge_failed(e, **kwargs)
             finally:
                 self.save()
