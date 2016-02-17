@@ -107,7 +107,7 @@ class Chargeable(models.Model):
             logger.info("Validation failed for %s %s, payer %s: %s" % (self.__class__.__name__, self.id, self.payer.id, e.message))
             self.charge_status = VALIDATION_FAILED
             self.save()
-            self.validation_failed(e.message)
+            self.validation_failed(e.message, **kwargs)
             return False
         return True
 
@@ -134,7 +134,7 @@ class Chargeable(models.Model):
     def charge_failed(self, exc, **kwargs):
         pass
 
-    def validation_failed(self, message):
+    def validation_failed(self, message, **kwargs):
         pass
 
     def _lock(self):
