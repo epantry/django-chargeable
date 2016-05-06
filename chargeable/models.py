@@ -20,6 +20,7 @@ class Chargeable(models.Model):
     charge_id = models.CharField(max_length=32, blank=True, null=True)
     charge_status = models.IntegerField(choices=CHARGEABLE_STATUS_CHOICES, default=0)
     charge_amount = models.IntegerField(null=True, blank=True)
+    charge_info = models.CharField(max_length=255, null=True, blank=True)
     charge_date = models.DateTimeField(null=True, blank=True)
 
     charge_error_msg = None
@@ -64,6 +65,7 @@ class Chargeable(models.Model):
             except StripeError as e:
                 self.charge_status = FAILED
                 exc_type, exc_value, _ = sys.exc_info()
+                self.charge_info = exc_value.message
                 self.charge_error_msg = exc_value.message
                 logger.warning('Charge failed amount(%s) payer(%s):%s - %s' % (
                     amount, self.payer.id, exc_type, exc_value.message
@@ -106,6 +108,7 @@ class Chargeable(models.Model):
         except ValidationError as e:
             logger.info("Validation failed for %s %s, payer %s: %s" % (self.__class__.__name__, self.id, self.payer.id, e.message))
             self.charge_status = VALIDATION_FAILED
+            self.charge_info = e.message
             self.save()
             self.validation_failed(e.message, **kwargs)
             return False
