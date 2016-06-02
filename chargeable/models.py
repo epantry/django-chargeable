@@ -47,6 +47,7 @@ class Chargeable(models.Model):
         stripe.api_key = settings.STRIPE_API_KEY
         if self.is_valid_for_charge(**kwargs) and self._lock():
             try:
+                self.pre_charge(**kwargs)
                 amount = self.get_charge_amount()
                 logger.info('Charging payer(%s): %s' % (self.payer.id, amount))
                 if amount >= app_settings.CHARGEABLE_STRIPE_MINIMUM_CHARGE_AMOUNT:
@@ -127,6 +128,9 @@ class Chargeable(models.Model):
 
     def get_charge_description(self):
         return 'Chargeable %s id:%s' % (self.__class__.__name__, self.id)
+
+    def pre_charge(self, **kwargs):
+        pass
 
     def post_charge(self, **kwargs):
         pass
