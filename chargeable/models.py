@@ -5,7 +5,7 @@ import logging
 from datetime import datetime
 from django.conf import settings
 from django.core.cache import cache
-from django.db import models
+from django.db import models, transaction
 from stripe.error import StripeError
 from chargeable import app_settings
 from chargeable.exceptions import ValidationError
@@ -46,6 +46,7 @@ class Chargeable(models.Model):
     def charge(self, **kwargs):
         stripe.api_key = settings.STRIPE_API_KEY
         if self.is_valid_for_charge(**kwargs) and self._lock():
+            sid = transaction.savepoint()
             try:
                 self.pre_charge(**kwargs)
                 amount = self.get_charge_amount()
@@ -59,11 +60,13 @@ class Chargeable(models.Model):
                     logger.info('Charged payer(%s): %s' % (self.payer.id, amount))
                     self.charge_id = charge.id
                     amount = charge.amount
+                transaction.savepoint_commit(sid)
                 self.charge_amount = amount
                 self.charge_status = PAID
                 self.charge_date = datetime.now()
                 self.charge_succeeded(amount, **kwargs)
             except StripeError as e:
+                transaction.savepoint_rollback(sid)
                 self.charge_status = FAILED
                 exc_type, exc_value, _ = sys.exc_info()
                 self.charge_info = exc_value.message
