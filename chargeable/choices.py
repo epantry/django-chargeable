@@ -13,3 +13,10 @@ CHARGEABLE_STATUS_CHOICES = (
     (PARTIALLY_REFUNDED, 'Partially refunded'),
     (VALIDATION_FAILED, 'Validation Failed')
 )
+
+
+CHARGEABLE_REFUND_CHOICES = (
+    ('requested_by_customer', 'Requested by customer'),
+    ('duplicate', 'Duplicate'),
+    ('fraudulent', 'Fraudulent'),
+)

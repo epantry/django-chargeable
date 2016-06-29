@@ -202,3 +202,14 @@ class Chargeable(models.Model):
 
     def refund_failed(self, e, **kwargs):
         pass
+
+    def admin_refund_link(self):
+        from chargeable.choices import PAID, PARTIALLY_REFUNDED
+        from django.core.urlresolvers import reverse
+
+        if self.charge_status in [PAID, PARTIALLY_REFUNDED]:
+            url = reverse('admin:%s_%s_refund' % (self._meta.app_label, self._meta.model_name), args=(self.id,))
+            return '<a href="%s?_popup=1" onclick="return showAddAnotherPopup(this);"><b>Refund</b></a>' % url
+        return ''
+    admin_refund_link.allow_tags = True
+    admin_refund_link.short_description = 'Refund'

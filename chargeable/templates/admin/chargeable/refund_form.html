@@ -1,0 +1,17 @@
+{% extends "admin/base_site.html" %}
+
+{% block content %}
+  <script type="text/javascript">
+    {% if refunded %}
+      setTimeout(window.close, 1500);
+    {% endif %}
+  </script>
+
+  {% if form %}
+    <form method="post">
+      {% csrf_token %}
+      {{ form.as_p }}
+      <input type="submit" value="Do refund"/>
+    </form>
+  {% endif %}
+{% endblock %}
